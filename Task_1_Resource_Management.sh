@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #Setting up base directories and file names
-SELECTED_DIR = "$HOME"
+#SELECTED_DIR = "$HOME"
 BASE_DIR="$HOME/AssignmentDirectory"
 ARCHIVE_DIR="$BASE_DIR/ArchiveLogs"
 LOG_FILE="$BASE_DIR/System_Monitor_Log.txt"
@@ -15,8 +15,8 @@ NC='\033[0m'
 
 #Seting up the Admin Log function
 log_event(){
-local msg="$1"
-printf"%s %s\n" "$(date'+%Y-%m-%d %H:%M:%S')" "$msg" >> "$LOG_FILE"
+local msg="$1 "
+printf "%s %s\n" "$(date '+%Y-%m-%d %H:%M:%S' ) " "$msg" >> "$LOG_FILE"
 }
 
 #Setting up the Menu
@@ -47,7 +47,20 @@ printf "LOG FILE Var: ${RED}$LOG_FILE${NC}"
 }
 
 cpu_usage(){
-echo "Not Implimented Yet"
+printf "${GRN} Current CPU and Memory Useage ${NC}"
+echo
+CPU_USAGE=$(top -bn1 | awk '/Cpu/ { print $2 }') #calculates the current CPU Usage
+MEMORY_USAGE=$(free -m | awk '/Mem/ { print $3 }') #calculates the current Memory useage
+
+#Prints out the results
+printf "${GRN}CPU USEAGE: ${NC}" #CPU Usage %
+echo "$CPU_USAGE%"
+printf "${GRN}MEM USEAGE: ${NC}" #Memory Usage MB
+echo "$MEMORY_USAGE MB"
+
+#Log the event in the LOG FILE
+log_event "System CPU and MEMORY checked CPU: $CPU_USAGE%, MEM: $MEMORY_USAGE MB"
+echo "Log File Updated."
 }
 
 dir_usage(){
@@ -55,7 +68,11 @@ echo "Not Implimented Yet"
 }
 
 list_highest(){
-echo "Not Implimented Yet"
+printf "${GRN} Top 10 CPU Consuming processes ${NC}"
+echo
+ps -eo cmd,pid,user,%cpu,%mem --sort=-%cpu | head
+log_event "Top 10 CPU Hungry Processes checked"
+echo "Log File Updated"
 }
 
 terminate_process(){
