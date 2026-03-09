@@ -2,32 +2,42 @@
 
 #Setting up base directories and file names
 #collects the directory path for the script itself (the logs will always be in the same place the script is)
+#cd is a command that sets the current directory, in this case SCRIPT_DIR will store the directory of the Bash Source (the application itself)
+#SCRIPT_DIR Also uses dirname which extracts the directory  of the specified file, in this case this application itself.
+#This is justified becasue it will allow the script to be placed anywhere and all relivent files will be togerher.
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
-#the directory for the logs
+
+#the directory for the logs, Uses SCRIPT_DIR to set the Base directory for this app
 BASE_DIR="$SCRIPT_DIR/logsDir"
 #directory for the log archive
 ARCHIVE_DIR="$BASE_DIR/ArchiveLogs"
 #directory for the log file
 LOG_FILE="$BASE_DIR/System_Monitor_Log.txt"
-#log file warning
-warning=500000000 #in bytes
 
-#optional stuff :)
+#log file size warning
+LogArchiveSize="$( numfmt --from=iec 500M )" #in bytes
+ArchiveWarn="$( numfmt --from=iec 1000M )" #Warnign if the log files reaches 1G
+#Challange: Trouble was had figuring out how to get this in human readable format (MB and GB)
+#Using numfmt allows me to convert 500M into bites helping it be more human readable in code.
+
+#Text colour codes, rather simple using this in printf "" will change the colour of the text printed
 RED='\033[1;31m'
 GRN='\033[1;32m'
 YLW='\033[1;33m'
-NC='\033[0m'
+NC='\033[0m' #No Colour (resets the formatting
 
 #Seting up the Admin Log function
+#Useage: log_event("Log even description")
 log_event(){
-local msg="$1 "
+local msg="$1 " #sets the  printed log message based pm the first argument of the function
 echo
+#prints the date and time in a Year Month Day format this is the ISO 8601 time standard
 printf "%s %s\n" "$(date '+%Y-%m-%d %H:%M:%S' ) " "$msg" >> "$LOG_FILE"
 printf "${NC}"
 echo "Log file has been updated."
 
-logSize=$(stat -c %s "$LOG_FILE")
-if [[ $(stat -c %s "$LOG_FILE") -gt warning  ]]; then
+logSize=$(stat -c %s "$LOG_FILE") #this file uses stat to get the file size of the log file
+if [[ logSize -gt LogArchiveSize  ]]; then #if logSize is Greater then warning
 	echo "Log file exceeded size limit, Archiving..." 
 
 	mkdir -p "$ARCHIVE_DIR" #create archive folder when needed
@@ -38,7 +48,18 @@ if [[ $(stat -c %s "$LOG_FILE") -gt warning  ]]; then
 	# renaming and moving the archive
 	ZN=ArchivedLog-"$(date '+%Y-%m-%d %H:%M:%S' )".zip 
 	mv archivedlog.zip "$ZN" 
-	mv "$ZN" "$ARCHIVE_DIR" 
+	mv "$ZN" "$ARCHIVE_DIR"
+
+	echo
+	#Archive Directory Warning
+	ADW=$(du -sb "$ARCHIVE_DIR" | awk '{ print $1 }')
+
+	if [[ ADW -gt ArchiveWarn  ]]; then
+        	echo
+        	printf "${RED}WARNING ARCHIVE FOLDER OVER 1G.${NC}"
+        	echo
+	fi
+ 
 fi
 echo
 }
@@ -79,6 +100,7 @@ log_event "System CPU and MEMORY checked CPU: $CPU_USAGE%, MEM: $MEMORY_USAGE MB
 dir_usage(){
 printf "${GRN}Directory Disk Useage${NC}"
 echo
+#du reads the disk useage of the directoy, printing it in a human readable format using the -ch option
 du -ch "$SCRIPT_DIR"
 sleep 1s
 #Log The Event
@@ -88,6 +110,7 @@ log_event "$SCRIPT_DIR disk useage checked"
 list_highest(){
 printf "${GRN}Top 10 CPU Consuming processes ${NC}"
 echo
+# ps returns a list of 10 processes that using --sort=-%cpu to sort them by cpu useage
 ps -eo cmd,pid,nice,user,%cpu,%mem --sort=-%cpu | head
 sleep 1s
 #Log the event
@@ -98,6 +121,7 @@ terminate_process(){
 #Select Process by its PID
 read -r -p "Please Type Process ID (Pid): " pid #type desired process
 
+#test compairs files and strings, and is used here to check if a PID exists
 if test -d /proc/$pid; then #Checks if the process Exists
 	read  nice cpu mem cmd < <(ps ho nice,%cpu,%mem,cmd $pid) #split the reading of ps into multiple variables 
 	echo
@@ -149,12 +173,14 @@ fi
 }
 
 main_loop(){
+echo
 mkdir -p "$BASE_DIR"
 #checks to make sure  a log file exists
 if [[ ! -f "$LOG_FILE"  ]]; then
 	touch "$LOG_FILE"
 	
-	#dd if=/dev/zero of="$LOG_FILE" bs=1M count=5 status=none
+	#Creates a log file of a certain size for testing
+	#dd if=/dev/zero of="$LOG_FILE" bs=1M count=1500 status=none
 
 	log_event "Log Created"
 
@@ -163,6 +189,7 @@ else
 	log_event "Management Tool Started."
 	printf "${GRN}Log file already exists in directory"
 fi
+echo
 
 while true; do
 print_menu
