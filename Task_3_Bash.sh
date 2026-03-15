@@ -23,8 +23,8 @@ maxSubmitSize="$( numfmt --from=iec 5M )" #Rejection size over 5MB
 #passwords=("Middy" "Alex" "Lilli") # ditto
 
 #Student ID and Password
-StudentID="1024"
-password="MiddyTheBird"
+StudentID="1"
+password="MTB"
 
 #Text colour codes, rather simple using this in printf "" will change the colour of the text printed
 RED='\033[1;31m'
@@ -98,7 +98,7 @@ if [[ -f "$subfile" ]]; then
 
 			if [[ ! -f $newFilePath  ]]; then
 				printf "${GRN}Assignment $file has been successfully submitted by student id$StudentID${NC}\n"
-				cp $subfile "$newFilePath" # Move The file to completed folder
+				cp $subfile "$newFilePath" # Copies The file to completed folder, preserving the origional
 				
 				# Log the submission
 				log_sub_event "Assignment ${file} has been successfully submitted by student id${StudentID}"
@@ -124,6 +124,8 @@ if [[ -f "$subfile" ]]; then
 		log_sub_event "student id${StudentID} tried uploading ${file} but the file wasn't a .pdf or .docx" 
 		sleep 1s
 	fi
+# Tell the User the account is locked
+        printf "${RED}ACCOUNT IS LOCKED NEW Attempts in 60${NC}\n"
 	#check if already exists
 	#log result
 else
@@ -134,22 +136,93 @@ fi
 }
 
 check_submission(){
-printf "${GRN}Not Implimented Yet..${NC}"
+#Read what file you want checked, TBH this is similar to whats being done in submit()
+read -r -p "File to be submitted (directory): " subfile
+
+if [[ -f "$subfile" ]]; then
+        file="$(basename "$subfile")" # Extract the file name from directory
+	
+	# Check if the file has already been submitted
+        newFilePath="$SUBMITTED/$file" # Creates a new file path to check with 
+	if [[ -f $newFilePath  ]]; then
+		printf "${GRN}${file} has been submitted.${NC}\n"
+		sleep 1s
+	else
+		printf "${RED}${file} has Not been submitted yet.${NC}\n"
+		sleep 1s
+	fi
+else
+	printf "${RED}There is no such file in directory.${NC}\n"
+	
+	
+# Displays Directory typed for error tracking.
+	printf "${RED}Typed Directory: ${NC}${subfile}\n"
+fi
+
 }
 
 list_submission(){
-printf "${GRN}Not Implimented Yet...${NC}\n"
+# This Loop prints out all of the files in the directory as a long directory string
+printf "${GRN}Currently Submitted Files.${NC}\n============\n"
+for submissions in "$SUBMITTED"/*
+do
+	# This converts and prints JUST the file without the rest of the directory
+	printf "${GRN}$(basename "$submissions")\n${NC}"
+done
+printf "============\n"
+}
 
-for f in "${submissions[@]}"; do
+# A function for setting Usernames and Passwords
+setUserPass(){
+#Student ID and Password defaults
+StudentID="1024"
+password="MTB"
+attempts=3 # Number wrogn attempts before lockage.
 
-	printf "$f \n"
-
-done;
+read -r -p "Please Chose a StudentID: " StudentID
+read -r -p "Please Chose a Password: " password
+printf "${GRN}Chosen Username: ${StudentID} | Password: ${password}${NC}\n\n"
 
 }
 
 login_sim(){
-printf "${GRN}Not Implimented Yet....${NC}"
+# Make the user type their username and password
+read -r -p "Please enter your StudentID: " StudidAttempt
+read -r -p "Please enter your Password: " passAttempt
+if [[ attempts -gt 0  ]]; then
+	# Check if Username and password are correct
+	if [[ $StudidAttempt = $StudentID && $passAttempt = $password  ]]; then
+		# Congradulations Youre in!
+		printf "\n============\n${GRN}Congradulations You're In!${NC}\n============\n"
+	
+		# Log Event
+		log_event "Successful Login attempt recorded"
+	else
+		# Counts the avalible attempts down by 1
+		attempts=$((attempts-1))
+
+		# Print unsucessful message
+		printf "\n${RED}Wrong username or password. Attempts remaining: ${attempts}\n"
+
+		# Time when failed attempt occured
+		SECONDS=0 # This Global tracks time since script has started, setting it here to 0 for time tracking
+	fi
+else
+	# Number of seconds since account got locked
+	timeSinceFail=$SECONDS
+	
+	# Tell the User the account is locked, with time till unlock
+	 printf "${RED}ACCOUNT IS LOCKED. Try again in $((60 - timeSinceFail)) second${NC}\n"
+
+	# Checks that the time since last fail is less then 60 seconds
+	if [[ $timeSinceFail -lt 10 ]]; then
+		# Log Suspicious activity
+		log_event "Suspicious activity detected - repeated login attempts after account lock."
+	else
+		# after 60 seconds reset attempts
+		attempts=3 
+	fi
+fi
 }
 
 exit_bye(){
@@ -183,7 +256,7 @@ if [[ ! -d "$SUBMIT_DIR" ]]; then
 	touch "$SUBMIT_DIR/submitLRGpdf.pdf"
 	dd if=/dev/zero of="$SUBMIT_DIR/submitLRGpdf.pdf" bs=1M count=10 status=none
 	
-	printf "${GRN}Test Files Created at ${SUBMIT_DIR}${NC}"
+	printf "${GRN}Test Files Created at ${SUBMIT_DIR}${NC}\n"
 fi
 
 }
@@ -193,15 +266,14 @@ echo
 # Creates Files for testing
 createTestFiles
 
+# Set User Password amd Username
+setUserPass
+
 # Checks to make sure  a log file exists
 if [[ ! -f "$LOG_FILE"  ]]; then
 	touch "$LOG_FILE"
-
-	log_event "Log Created"
-
 	printf "${GRN}System Log created"
 else
-	log_event "Management Tool Started."
 	printf "${GRN}Log file already exists in directory"
 fi
 echo
