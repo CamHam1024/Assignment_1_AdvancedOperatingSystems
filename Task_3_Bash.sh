@@ -215,7 +215,7 @@ else
 	 printf "${RED}ACCOUNT IS LOCKED. Try again in $((60 - timeSinceFail)) second${NC}\n"
 
 	# Checks that the time since last fail is less then 60 seconds
-	if [[ $timeSinceFail -lt 10 ]]; then
+	if [[ $timeSinceFail -lt 60 ]]; then
 		# Log Suspicious activity
 		log_event "Suspicious activity detected - repeated login attempts after account lock."
 	else
